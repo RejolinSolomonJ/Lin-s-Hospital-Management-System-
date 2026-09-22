@@ -14,7 +14,8 @@ const verifyToken = (req, res, next) => {
         if (err) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
-        req.userId = decoded.id; // Save doctor ID to request
+        req.userId = decoded.id; // Save user ID
+        req.userRole = decoded.role || 'faculty'; // Save user role
         next();
     });
 };

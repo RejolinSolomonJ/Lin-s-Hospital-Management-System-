@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { ArrowLeft, Plus, Edit2, Trash2, Calendar, FileText } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { API_BASE_URL } from '../config/api';
 import toast from 'react-hot-toast';
 
 const PatientDetails = ({ patient, onBack }) => {
@@ -18,7 +19,8 @@ const PatientDetails = ({ patient, onBack }) => {
         prescription: '',
         notes: '',
         cost: '',
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        toothNumber: ''
     });
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -55,14 +57,14 @@ const PatientDetails = ({ patient, onBack }) => {
         setLoading(true);
         try {
             if (activeTab === 'treatments') {
-                const res = await axios.get(`http://localhost:5000/api/treatments/patient/${patient.id}`);
+                const res = await axios.get(`${API_BASE_URL}/api/treatments/patient/${patient.id}`);
                 setTreatments(res.data);
             } else {
                 // Fetch patient appointments (assuming endpoint exists or filter all)
                 // For now, allow Dashboard to pass appointments or fetch all and filter
                 // Ideally, backend should support /api/appointments?patientId=...
                 // We'll filter all appointments for now as we don't want to change backend appointment logic too much yet
-                const res = await axios.get('http://localhost:5000/api/appointments');
+                const res = await axios.get(`${API_BASE_URL}/api/appointments`);
                 const patientAppts = res.data.filter(a => a.patientId === patient.id);
                 setAppointments(patientAppts);
             }
@@ -80,10 +82,10 @@ const PatientDetails = ({ patient, onBack }) => {
             const payload = { ...currentTreatment, patientId: patient.id };
 
             if (isEditing) {
-                await axios.put(`http://localhost:5000/api/treatments/${editId}`, payload);
+                await axios.put(`${API_BASE_URL}/api/treatments/${editId}`, payload);
                 toast.success('Treatment updated');
             } else {
-                await axios.post('http://localhost:5000/api/treatments', payload);
+                await axios.post(`${API_BASE_URL}/api/treatments`, payload);
                 toast.success('Treatment added');
             }
 
@@ -99,7 +101,7 @@ const PatientDetails = ({ patient, onBack }) => {
                     notes: `Follow-up for: ${currentTreatment.diagnosis}`
                 };
                 try {
-                    await axios.post('http://localhost:5000/api/appointments', appointmentPayload);
+                    await axios.post(`${API_BASE_URL}/api/appointments`, appointmentPayload);
                     toast.success('Follow-up appointment booked!');
                 } catch (apptError) {
                     console.error('Error booking follow-up:', apptError);
@@ -118,7 +120,7 @@ const PatientDetails = ({ patient, onBack }) => {
     const handleDeleteTreatment = async (id) => {
         if (!window.confirm('Are you sure you want to delete this treatment?')) return;
         try {
-            await axios.delete(`http://localhost:5000/api/treatments/${id}`);
+            await axios.delete(`${API_BASE_URL}/api/treatments/${id}`);
             toast.success('Treatment deleted');
             fetchData();
         } catch (error) {

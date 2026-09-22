@@ -15,6 +15,10 @@ const Patient = sequelize.define('Patient', {
         type: DataTypes.INTEGER,
         allowNull: true
     },
+    gender: {
+        type: DataTypes.STRING,
+        defaultValue: 'Not Specified'
+    },
     email: {
         type: DataTypes.STRING
     },
@@ -24,9 +28,17 @@ const Patient = sequelize.define('Patient', {
     },
     doctorId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         references: {
             model: 'Doctors',
+            key: 'id'
+        }
+    },
+    studentId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+            model: 'Students',
             key: 'id'
         }
     }
