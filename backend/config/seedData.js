@@ -6,7 +6,7 @@ const seedData = async () => {
         const defaultPassword = await bcrypt.hash('password123', 10);
 
         // Seed Dental Faculties
-        let drJenkins = await Doctor.findOne({ where: { email: 'dr.jenkins@dental.meduni.edu' } });
+        let drJenkins = await Doctor.findOne({ email: 'dr.jenkins@dental.meduni.edu' });
         if (!drJenkins) {
             drJenkins = await Doctor.create({
                 name: 'Dr. Sarah Jenkins',
@@ -25,7 +25,7 @@ const seedData = async () => {
             });
         }
 
-        let drChen = await Doctor.findOne({ where: { email: 'dr.chen@dental.meduni.edu' } });
+        let drChen = await Doctor.findOne({ email: 'dr.chen@dental.meduni.edu' });
         if (!drChen) {
             drChen = await Doctor.create({
                 name: 'Dr. Marcus Chen',
@@ -44,7 +44,7 @@ const seedData = async () => {
             });
         }
 
-        let drRostova = await Doctor.findOne({ where: { email: 'dr.rostova@dental.meduni.edu' } });
+        let drRostova = await Doctor.findOne({ email: 'dr.rostova@dental.meduni.edu' });
         if (!drRostova) {
             drRostova = await Doctor.create({
                 name: 'Dr. Elena Rostova',
@@ -63,7 +63,7 @@ const seedData = async () => {
             });
         }
 
-        let drPatel = await Doctor.findOne({ where: { email: 'dr.patel@dental.meduni.edu' } });
+        let drPatel = await Doctor.findOne({ email: 'dr.patel@dental.meduni.edu' });
         if (!drPatel) {
             drPatel = await Doctor.create({
                 name: 'Dr. Kenneth Patel',
@@ -83,7 +83,7 @@ const seedData = async () => {
         }
 
         // Seed Dental Students
-        let studentAlex = await Student.findOne({ where: { email: 'alex.carter@student.dental.edu' } });
+        let studentAlex = await Student.findOne({ email: 'alex.carter@student.dental.edu' });
         if (!studentAlex) {
             studentAlex = await Student.create({
                 name: 'Alex Carter',
@@ -97,7 +97,7 @@ const seedData = async () => {
             });
         }
 
-        let studentMaya = await Student.findOne({ where: { email: 'maya.patel@student.dental.edu' } });
+        let studentMaya = await Student.findOne({ email: 'maya.patel@student.dental.edu' });
         if (!studentMaya) {
             studentMaya = await Student.create({
                 name: 'Maya Patel',
@@ -111,7 +111,7 @@ const seedData = async () => {
             });
         }
 
-        let studentLucas = await Student.findOne({ where: { email: 'lucas.kim@student.dental.edu' } });
+        let studentLucas = await Student.findOne({ email: 'lucas.kim@student.dental.edu' });
         if (!studentLucas) {
             studentLucas = await Student.create({
                 name: 'Lucas Kim',
@@ -128,12 +128,12 @@ const seedData = async () => {
         // Seed Mentorship relationship
         // Alex Carter selected Dr. Sarah Jenkins (Approved)
         const existingMentorship1 = await Mentorship.findOne({
-            where: { studentId: studentAlex.id, facultyId: drJenkins.id }
+            studentId: studentAlex._id, facultyId: drJenkins._id
         });
         if (!existingMentorship1) {
             await Mentorship.create({
-                studentId: studentAlex.id,
-                facultyId: drJenkins.id,
+                studentId: studentAlex._id,
+                facultyId: drJenkins._id,
                 status: 'Active',
                 goals: 'Complete 30 rotary endodontic molar cases and receive guidance on post & core crowns.',
                 academicYear: '2025-2026',
@@ -143,12 +143,12 @@ const seedData = async () => {
 
         // Maya Patel requested Dr. Sarah Jenkins (Pending)
         const existingMentorship2 = await Mentorship.findOne({
-            where: { studentId: studentMaya.id, facultyId: drJenkins.id }
+            studentId: studentMaya._id, facultyId: drJenkins._id
         });
         if (!existingMentorship2) {
             await Mentorship.create({
-                studentId: studentMaya.id,
-                facultyId: drJenkins.id,
+                studentId: studentMaya._id,
+                facultyId: drJenkins._id,
                 status: 'Pending',
                 goals: 'Seeking preceptor for pre-clinical to clinical endodontic transition and rubber dam placement.',
                 academicYear: '2025-2026'
@@ -156,7 +156,7 @@ const seedData = async () => {
         }
 
         // Seed Clinical Dental Patients
-        let patientDavid = await Patient.findOne({ where: { phone: '+1 (555) 123-9988' } });
+        let patientDavid = await Patient.findOne({ phone: '+1 (555) 123-9988' });
         if (!patientDavid) {
             patientDavid = await Patient.create({
                 name: 'David Miller',
@@ -164,12 +164,12 @@ const seedData = async () => {
                 gender: 'Male',
                 phone: '+1 (555) 123-9988',
                 email: 'david.miller@gmail.com',
-                studentId: studentAlex.id,
-                doctorId: drJenkins.id
+                studentId: studentAlex._id,
+                doctorId: drJenkins._id
             });
         }
 
-        let patientSophia = await Patient.findOne({ where: { phone: '+1 (555) 321-7766' } });
+        let patientSophia = await Patient.findOne({ phone: '+1 (555) 321-7766' });
         if (!patientSophia) {
             patientSophia = await Patient.create({
                 name: 'Sophia Gonzalez',
@@ -177,8 +177,8 @@ const seedData = async () => {
                 gender: 'Female',
                 phone: '+1 (555) 321-7766',
                 email: 'sophia.g@gmail.com',
-                studentId: studentAlex.id,
-                doctorId: drJenkins.id
+                studentId: studentAlex._id,
+                doctorId: drJenkins._id
             });
         }
 
@@ -186,13 +186,13 @@ const seedData = async () => {
         const today = new Date().toISOString().split('T')[0];
 
         const existingAppt1 = await Appointment.findOne({
-            where: { studentId: studentAlex.id, date: today, time: '10:00' }
+            studentId: studentAlex._id, date: today, time: '10:00'
         });
         if (!existingAppt1) {
             await Appointment.create({
-                doctorId: drJenkins.id,
-                studentId: studentAlex.id,
-                patientId: patientDavid.id,
+                doctorId: drJenkins._id,
+                studentId: studentAlex._id,
+                patientId: patientDavid._id,
                 tokenNumber: 1,
                 date: today,
                 time: '10:00',
@@ -207,13 +207,13 @@ const seedData = async () => {
         }
 
         const existingAppt2 = await Appointment.findOne({
-            where: { studentId: studentAlex.id, date: today, time: '11:30' }
+            studentId: studentAlex._id, date: today, time: '11:30'
         });
         if (!existingAppt2) {
             await Appointment.create({
-                doctorId: drJenkins.id,
-                studentId: studentAlex.id,
-                patientId: patientSophia.id,
+                doctorId: drJenkins._id,
+                studentId: studentAlex._id,
+                patientId: patientSophia._id,
                 tokenNumber: 2,
                 date: today,
                 time: '11:30',

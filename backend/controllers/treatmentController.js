@@ -1,5 +1,15 @@
 const { Treatment, Patient, Doctor } = require('../models');
 
+const transformTreatment = (treatment) => {
+    const obj = treatment.toObject ? treatment.toObject() : treatment;
+    return {
+        ...obj,
+        id: obj._id,
+        Patient: obj.patientId,
+        Doctor: obj.doctorId
+    };
+};
+
 const createTreatment = async (req, res) => {
     try {
         const { patientId, diagnosis, prescription, notes, cost, date } = req.body;
@@ -15,7 +25,7 @@ const createTreatment = async (req, res) => {
             date: date || new Date()
         });
 
-        res.status(201).json({ message: 'Treatment record created', treatment });
+        res.status(201).json({ message: 'Treatment record created', treatment: transformTreatment(treatment) });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error creating treatment record' });
@@ -27,12 +37,10 @@ const getTreatmentsByPatient = async (req, res) => {
         const { patientId } = req.params;
         const doctorId = req.userId;
 
-        const treatments = await Treatment.findAll({
-            where: { patientId, doctorId },
-            order: [['date', 'DESC']]
-        });
+        const treatments = await Treatment.find({ patientId, doctorId })
+            .sort({ date: -1 });
 
-        res.status(200).json(treatments);
+        res.status(200).json(treatments.map(transformTreatment));
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error fetching treatments' });
@@ -45,14 +53,16 @@ const updateTreatment = async (req, res) => {
         const updates = req.body;
         const doctorId = req.userId;
 
-        const treatment = await Treatment.findOne({ where: { id, doctorId } });
+        const treatment = await Treatment.findOne({ _id: id, doctorId });
 
         if (!treatment) {
             return res.status(404).json({ message: 'Treatment not found' });
         }
 
-        await treatment.update(updates);
-        res.status(200).json({ message: 'Treatment updated', treatment });
+        Object.assign(treatment, updates);
+        await treatment.save();
+        
+        res.status(200).json({ message: 'Treatment updated', treatment: transformTreatment(treatment) });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error updating treatment' });
@@ -64,7 +74,7 @@ const deleteTreatment = async (req, res) => {
         const { id } = req.params;
         const doctorId = req.userId;
 
-        const deleted = await Treatment.destroy({ where: { id, doctorId } });
+        const deleted = await Treatment.findOneAndDelete({ _id: id, doctorId });
 
         if (!deleted) {
             return res.status(404).json({ message: 'Treatment not found' });

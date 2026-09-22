@@ -26,12 +26,12 @@ const register = async (req, res) => {
 
         if (role === 'student') {
             // Check if student email or roll number exists
-            const existingStudent = await Student.findOne({ where: { email } });
+            const existingStudent = await Student.findOne({ email });
             if (existingStudent) {
                 return res.status(400).json({ message: 'A student account with this email already exists.' });
             }
 
-            const existingRoll = rollNumber ? await Student.findOne({ where: { rollNumber } }) : null;
+            const existingRoll = rollNumber ? await Student.findOne({ rollNumber }) : null;
             if (existingRoll) {
                 return res.status(400).json({ message: 'Roll Number is already registered in the university system.' });
             }
@@ -53,7 +53,7 @@ const register = async (req, res) => {
             });
         } else {
             // Faculty registration
-            const existingDoctor = await Doctor.findOne({ where: { email } });
+            const existingDoctor = await Doctor.findOne({ email });
             if (existingDoctor) {
                 return res.status(400).json({ message: 'A faculty account with this email already exists.' });
             }
@@ -92,18 +92,18 @@ const login = async (req, res) => {
         let userRole = role;
 
         if (role === 'student') {
-            user = await Student.findOne({ where: { email } });
+            user = await Student.findOne({ email });
             userRole = 'student';
         } else if (role === 'faculty') {
-            user = await Doctor.findOne({ where: { email } });
+            user = await Doctor.findOne({ email });
             userRole = 'faculty';
         } else {
             // Role not explicitly provided: check Doctor first, then Student
-            user = await Doctor.findOne({ where: { email } });
+            user = await Doctor.findOne({ email });
             if (user) {
                 userRole = 'faculty';
             } else {
-                user = await Student.findOne({ where: { email } });
+                user = await Student.findOne({ email });
                 if (user) userRole = 'student';
             }
         }
@@ -157,16 +157,16 @@ const getMe = async (req, res) => {
 
         let user = null;
         if (userRole === 'student') {
-            user = await Student.findByPk(userId, { attributes: { exclude: ['password'] } });
+            user = await Student.findById(userId, '-password');
         } else {
-            user = await Doctor.findByPk(userId, { attributes: { exclude: ['password'] } });
+            user = await Doctor.findById(userId, '-password');
         }
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        res.status(200).json({ user: { ...user.toJSON(), role: userRole } });
+        res.status(200).json({ user: { ...user.toObject(), role: userRole } });
     } catch (error) {
         console.error('GetMe Error:', error);
         res.status(500).json({ message: 'Error fetching user profile' });

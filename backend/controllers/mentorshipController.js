@@ -1,33 +1,49 @@
 const { Mentorship, Student, Doctor, Appointment } = require('../models');
 
+const transformMentorship = (mentorship) => {
+    const obj = mentorship.toObject ? mentorship.toObject() : mentorship;
+    return {
+        ...obj,
+        id: obj._id,
+        Student: obj.studentId,
+        Faculty: obj.facultyId
+    };
+};
+
+const transformFaculty = (faculty) => {
+    const obj = faculty.toObject ? faculty.toObject() : faculty;
+    return {
+        ...obj,
+        id: obj._id,
+        Mentorships: obj.mentorships || []
+    };
+};
+
 // 1. Get all faculties for students to browse and select
 const getAllFaculties = async (req, res) => {
     try {
-        const faculties = await Doctor.findAll({
-            attributes: { exclude: ['password'] },
-            include: [
-                {
-                    model: Mentorship,
-                    as: 'Mentorships',
-                    attributes: ['id', 'status', 'studentId']
-                }
-            ]
-        });
-
+        // Fetch all doctors and their active/pending mentorships
+        const faculties = await Doctor.find({}, '-password');
+        const mentorships = await Mentorship.find({ status: { $in: ['Active', 'Pending'] } });
+        
         // Compute active mentee count and occupancy for each faculty
         const facultiesWithStats = faculties.map(fac => {
-            const json = fac.toJSON();
-            const activeMenteesCount = (json.Mentorships || []).filter(m => m.status === 'Active').length;
-            const pendingRequestsCount = (json.Mentorships || []).filter(m => m.status === 'Pending').length;
+            const json = fac.toObject();
+            const facMentorships = mentorships.filter(m => m.facultyId.toString() === fac._id.toString());
+            
+            const activeMenteesCount = facMentorships.filter(m => m.status === 'Active').length;
+            const pendingRequestsCount = facMentorships.filter(m => m.status === 'Pending').length;
             const maxMentees = json.maxMentees || 6;
             const availableSlots = Math.max(0, maxMentees - activeMenteesCount);
 
             return {
                 ...json,
+                id: json._id,
                 activeMenteesCount,
                 pendingRequestsCount,
                 availableSlots,
-                isFull: activeMenteesCount >= maxMentees
+                isFull: activeMenteesCount >= maxMentees,
+                Mentorships: facMentorships
             };
         });
 
@@ -48,15 +64,13 @@ const selectMentor = async (req, res) => {
             return res.status(400).json({ message: 'Please choose a faculty member to select as mentor.' });
         }
 
-        const faculty = await Doctor.findByPk(facultyId);
+        const faculty = await Doctor.findById(facultyId);
         if (!faculty) {
             return res.status(404).json({ message: 'Faculty member not found.' });
         }
 
         // Check if student already has a pending or active mentorship with this faculty
-        const existing = await Mentorship.findOne({
-            where: { studentId, facultyId }
-        });
+        const existing = await Mentorship.findOne({ studentId, facultyId });
 
         if (existing) {
             if (existing.status === 'Active') {
@@ -75,7 +89,7 @@ const selectMentor = async (req, res) => {
                 const io = req.app.get('io');
                 if (io) {
                     io.emit('new_mentorship_request', {
-                        mentorship: existing,
+                        mentorship: transformMentorship(existing),
                         facultyId,
                         studentId,
                         message: `Mentorship request resubmitted to ${faculty.name}`
@@ -85,12 +99,12 @@ const selectMentor = async (req, res) => {
                 console.error('Socket error:', socketErr);
             }
 
-            return res.status(200).json({ message: `Mentorship request resubmitted to ${faculty.name}!`, mentorship: existing });
+            return res.status(200).json({ message: `Mentorship request resubmitted to ${faculty.name}!`, mentorship: transformMentorship(existing) });
         }
 
         // Check faculty capacity
-        const activeCount = await Mentorship.count({
-            where: { facultyId, status: 'Active' }
+        const activeCount = await Mentorship.countDocuments({
+            facultyId, status: 'Active'
         });
 
         if (activeCount >= (faculty.maxMentees || 6)) {
@@ -107,18 +121,17 @@ const selectMentor = async (req, res) => {
             academicYear: academicYear || '2025-2026'
         });
 
-        const populatedMentorship = await Mentorship.findByPk(mentorship.id, {
-            include: [
-                { model: Student, as: 'Student', attributes: ['id', 'name', 'rollNumber', 'year', 'department', 'email'] },
-                { model: Doctor, as: 'Faculty', attributes: ['id', 'name', 'department', 'designation', 'cabin'] }
-            ]
-        });
+        const populatedMentorship = await Mentorship.findById(mentorship._id)
+            .populate('studentId', 'name rollNumber year department email')
+            .populate('facultyId', 'name department designation cabin');
+
+        const transformedMentorship = transformMentorship(populatedMentorship);
 
         try {
             const io = req.app.get('io');
             if (io) {
                 io.emit('new_mentorship_request', {
-                    mentorship: populatedMentorship || mentorship,
+                    mentorship: transformedMentorship,
                     facultyId,
                     studentId,
                     message: `New mentorship request submitted to ${faculty.name}`
@@ -130,7 +143,7 @@ const selectMentor = async (req, res) => {
 
         res.status(201).json({
             message: `Mentorship request successfully sent to ${faculty.name}! It is now visible on their faculty portal.`,
-            mentorship: populatedMentorship || mentorship
+            mentorship: transformedMentorship
         });
     } catch (error) {
         console.error('Error selecting mentor:', error);
@@ -143,19 +156,11 @@ const getFacultyMentees = async (req, res) => {
     try {
         const facultyId = req.userId; // Faculty ID from token
 
-        const mentees = await Mentorship.findAll({
-            where: { facultyId },
-            include: [
-                {
-                    model: Student,
-                    as: 'Student',
-                    attributes: { exclude: ['password'] }
-                }
-            ],
-            order: [['createdAt', 'DESC']]
-        });
+        const mentees = await Mentorship.find({ facultyId })
+            .populate('studentId', '-password')
+            .sort({ createdAt: -1 });
 
-        res.status(200).json(mentees);
+        res.status(200).json(mentees.map(transformMentorship));
     } catch (error) {
         console.error('Error fetching faculty mentees:', error);
         res.status(500).json({ message: 'Error retrieving mentees list' });
@@ -169,10 +174,8 @@ const updateMentorshipStatus = async (req, res) => {
         const { id } = req.params; // Mentorship ID
         const { status, facultyNotes } = req.body;
 
-        const mentorship = await Mentorship.findOne({
-            where: { id, facultyId },
-            include: [{ model: Student, as: 'Student', attributes: ['name', 'email'] }]
-        });
+        const mentorship = await Mentorship.findOne({ _id: id, facultyId })
+            .populate('studentId', 'name email');
 
         if (!mentorship) {
             return res.status(404).json({ message: 'Mentorship record not found' });
@@ -182,13 +185,15 @@ const updateMentorshipStatus = async (req, res) => {
         if (facultyNotes !== undefined) mentorship.facultyNotes = facultyNotes;
         await mentorship.save();
 
+        const transformedMentorship = transformMentorship(mentorship);
+
         try {
             const io = req.app.get('io');
             if (io) {
                 io.emit('mentorship_status_updated', {
-                    mentorship,
+                    mentorship: transformedMentorship,
                     facultyId,
-                    studentId: mentorship.studentId,
+                    studentId: mentorship.studentId._id,
                     status: mentorship.status,
                     message: `Mentorship request status updated to ${mentorship.status}`
                 });
@@ -199,7 +204,7 @@ const updateMentorshipStatus = async (req, res) => {
 
         res.status(200).json({
             message: `Mentorship status updated to ${mentorship.status}`,
-            mentorship
+            mentorship: transformedMentorship
         });
     } catch (error) {
         console.error('Error updating mentorship status:', error);
@@ -212,19 +217,11 @@ const getStudentMentor = async (req, res) => {
     try {
         const studentId = req.userId;
 
-        const mentorships = await Mentorship.findAll({
-            where: { studentId },
-            include: [
-                {
-                    model: Doctor,
-                    as: 'Faculty',
-                    attributes: { exclude: ['password'] }
-                }
-            ],
-            order: [['createdAt', 'DESC']]
-        });
+        const mentorships = await Mentorship.find({ studentId })
+            .populate('facultyId', '-password')
+            .sort({ createdAt: -1 });
 
-        res.status(200).json(mentorships);
+        res.status(200).json(mentorships.map(transformMentorship));
     } catch (error) {
         console.error('Error fetching student mentor:', error);
         res.status(500).json({ message: 'Error fetching mentorship details' });

@@ -1,46 +1,35 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Treatment = sequelize.define('Treatment', {
-    id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-    },
+const treatmentSchema = new mongoose.Schema({
     diagnosis: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     prescription: {
-        type: DataTypes.TEXT
+        type: String
     },
     notes: {
-        type: DataTypes.TEXT
+        type: String
     },
     date: {
-        type: DataTypes.DATEONLY, // Or DATE if you want time
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     },
     cost: {
-        type: DataTypes.DECIMAL(10, 2),
-        defaultValue: 0.00
+        type: Number,
+        default: 0.00
     },
     patientId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'Patients',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Patient',
+        required: true
     },
     doctorId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'Doctors',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Doctor',
+        required: true
     }
-});
+}, { timestamps: true });
 
+const Treatment = mongoose.model('Treatment', treatmentSchema);
 module.exports = Treatment;

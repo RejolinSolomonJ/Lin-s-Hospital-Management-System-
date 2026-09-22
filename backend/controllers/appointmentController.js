@@ -1,6 +1,17 @@
 const { Appointment, Patient, Doctor, Student } = require('../models');
 const { sendEmail, sendSMS } = require('../services/notificationService');
-const { Op } = require('sequelize');
+
+const transformAppointment = (appt) => {
+    const obj = appt.toObject ? appt.toObject() : appt;
+    // Map populated fields to uppercase keys for frontend compatibility
+    return {
+        ...obj,
+        id: obj._id,
+        Doctor: obj.doctorId,
+        Student: obj.studentId,
+        Patient: obj.patientId
+    };
+};
 
 const createAppointment = async (req, res) => {
     try {
@@ -39,7 +50,7 @@ const createAppointment = async (req, res) => {
             // Find or Create Patient
             if (patientName) {
                 const phone = patientPhone || '0000000000';
-                let patient = await Patient.findOne({ where: { name: patientName, phone } });
+                let patient = await Patient.findOne({ name: patientName, phone });
                 if (!patient) {
                     patient = await Patient.create({
                         name: patientName,
@@ -51,7 +62,7 @@ const createAppointment = async (req, res) => {
                         doctorId: effectiveFacultyId
                     });
                 }
-                effectivePatientId = patient.id;
+                effectivePatientId = patient._id;
             }
         } else {
             // Created by Faculty
@@ -61,7 +72,7 @@ const createAppointment = async (req, res) => {
             }
             if (patientName) {
                 const phone = patientPhone || '0000000000';
-                let patient = await Patient.findOne({ where: { name: patientName, phone, doctorId: effectiveFacultyId } });
+                let patient = await Patient.findOne({ name: patientName, phone, doctorId: effectiveFacultyId });
                 if (!patient) {
                     patient = await Patient.create({
                         name: patientName,
@@ -72,7 +83,7 @@ const createAppointment = async (req, res) => {
                         doctorId: effectiveFacultyId
                     });
                 }
-                effectivePatientId = patient.id;
+                effectivePatientId = patient._id;
             }
         }
 
@@ -81,12 +92,10 @@ const createAppointment = async (req, res) => {
         // 2. Prevent Double Booking for the same student clinician at the same date & time
         if (effectiveStudentId) {
             const studentConflict = await Appointment.findOne({
-                where: {
-                    studentId: effectiveStudentId,
-                    date,
-                    time,
-                    status: ['Scheduled']
-                }
+                studentId: effectiveStudentId,
+                date,
+                time,
+                status: 'Scheduled'
             });
             if (studentConflict) {
                 return res.status(409).json({ message: `You already have a patient procedure scheduled on ${date} at ${time}.` });
@@ -95,23 +104,19 @@ const createAppointment = async (req, res) => {
 
         // 3. Prevent Double Booking for the supervising faculty at the same slot
         const facultyConflict = await Appointment.findOne({
-            where: {
-                doctorId: effectiveFacultyId,
-                date,
-                time,
-                status: ['Scheduled']
-            }
+            doctorId: effectiveFacultyId,
+            date,
+            time,
+            status: 'Scheduled'
         });
         if (facultyConflict) {
             return res.status(409).json({ message: `Dr. is already supervising an appointment at ${time} on ${date}. Please select another time.` });
         }
 
         // 4. Calculate Daily Token Number for this clinic on this date
-        const existingCount = await Appointment.count({
-            where: {
-                doctorId: effectiveFacultyId,
-                date
-            }
+        const existingCount = await Appointment.countDocuments({
+            doctorId: effectiveFacultyId,
+            date
         });
         const tokenNumber = existingCount + 1;
 
@@ -136,20 +141,19 @@ const createAppointment = async (req, res) => {
             sendSMS(patientPhone, `Lin's Dental Clinic: Appointment confirmed for ${patientName} on ${date} at ${time}. Procedure: ${procedureName}. Token: #${tokenNumber}.`);
         }
 
-        const populated = await Appointment.findByPk(appointment.id, {
-            include: [
-                { model: Patient },
-                { model: Student, attributes: ['id', 'name', 'rollNumber', 'year', 'department', 'email'] },
-                { model: Doctor, attributes: ['id', 'name', 'department', 'designation', 'cabin'] }
-            ]
-        });
+        const populated = await Appointment.findById(appointment._id)
+            .populate('patientId')
+            .populate('studentId', 'name rollNumber year department email')
+            .populate('doctorId', 'name department designation cabin');
+
+        const transformedPopulated = transformAppointment(populated);
 
         // 7. Emit real-time Socket.IO event to all clients / devices
         try {
             const io = req.app.get('io');
             if (io) {
                 io.emit('new_appointment', {
-                    appointment: populated,
+                    appointment: transformedPopulated,
                     doctorId: effectiveFacultyId,
                     studentId: effectiveStudentId,
                     message: `New clinical appointment scheduled: ${patientName || 'Patient'} (${procedureName})`
@@ -161,7 +165,7 @@ const createAppointment = async (req, res) => {
 
         res.status(201).json({
             message: 'Patient clinical appointment scheduled under faculty mentor supervision!',
-            appointment: populated
+            appointment: transformedPopulated
         });
     } catch (error) {
         console.error('Error creating patient appointment:', error);
@@ -181,17 +185,13 @@ const getAppointments = async (req, res) => {
             query = { doctorId: userId };
         }
 
-        const appointments = await Appointment.findAll({
-            where: query,
-            include: [
-                { model: Patient },
-                { model: Student, attributes: ['id', 'name', 'rollNumber', 'year', 'department', 'email', 'phone'] },
-                { model: Doctor, attributes: ['id', 'name', 'department', 'designation', 'cabin', 'email', 'phone'] }
-            ],
-            order: [['date', 'ASC'], ['time', 'ASC']]
-        });
+        const appointments = await Appointment.find(query)
+            .populate('patientId')
+            .populate('studentId', 'name rollNumber year department email phone')
+            .populate('doctorId', 'name department designation cabin email phone')
+            .sort({ date: 1, time: 1 });
 
-        res.status(200).json(appointments);
+        res.status(200).json(appointments.map(transformAppointment));
     } catch (error) {
         console.error('Error fetching appointments:', error);
         res.status(500).json({ message: 'Error fetching appointments' });
@@ -210,9 +210,9 @@ const getOccupancyCalendar = async (req, res) => {
         if (userRole === 'student') {
             maxSlotsPerDay = 4; // Daily student clinical dental chair quota
             query = { studentId: userId, status: 'Scheduled' };
-            const student = await Student.findByPk(userId);
+            const student = await Student.findById(userId);
             profileInfo = {
-                id: student?.id,
+                id: student?._id,
                 name: student?.name,
                 role: 'student',
                 year: student?.year,
@@ -220,11 +220,11 @@ const getOccupancyCalendar = async (req, res) => {
             };
         } else {
             const facultyId = req.query.facultyId || userId;
-            const faculty = await Doctor.findByPk(facultyId);
+            const faculty = await Doctor.findById(facultyId);
             maxSlotsPerDay = faculty?.totalSlotsPerDay || 6;
             query = { doctorId: facultyId, status: 'Scheduled' };
             profileInfo = {
-                id: faculty?.id,
+                id: faculty?._id,
                 name: faculty?.name,
                 role: 'faculty',
                 department: faculty?.department,
@@ -233,14 +233,12 @@ const getOccupancyCalendar = async (req, res) => {
             };
         }
 
-        const appointments = await Appointment.findAll({
-            where: query,
-            include: [
-                { model: Patient, attributes: ['name', 'age', 'gender', 'phone'] },
-                { model: Student, attributes: ['name', 'rollNumber', 'year'] },
-                { model: Doctor, attributes: ['name', 'department', 'cabin'] }
-            ]
-        });
+        const rawAppointments = await Appointment.find(query)
+            .populate('patientId', 'name age gender phone')
+            .populate('studentId', 'name rollNumber year')
+            .populate('doctorId', 'name department cabin');
+
+        const appointments = rawAppointments.map(transformAppointment);
 
         const dateMap = {};
         appointments.forEach(appt => {
@@ -288,10 +286,10 @@ const updateStatus = async (req, res) => {
         const userRole = req.userRole;
 
         const whereCondition = userRole === 'student'
-            ? { id, studentId: userId }
-            : { id, doctorId: userId };
+            ? { _id: id, studentId: userId }
+            : { _id: id, doctorId: userId };
 
-        const appointment = await Appointment.findOne({ where: whereCondition });
+        const appointment = await Appointment.findOne(whereCondition);
 
         if (!appointment) {
             return res.status(404).json({ message: 'Appointment not found or unauthorized' });
@@ -306,7 +304,7 @@ const updateStatus = async (req, res) => {
             const io = req.app.get('io');
             if (io) {
                 io.emit('appointment_status_updated', {
-                    appointment,
+                    appointment: transformAppointment(appointment),
                     appointmentId: id,
                     status: appointment.status,
                     message: `Appointment status updated to ${appointment.status}`
@@ -316,7 +314,7 @@ const updateStatus = async (req, res) => {
             console.error('Socket emission error:', socketErr);
         }
 
-        res.status(200).json({ message: 'Appointment status updated', appointment });
+        res.status(200).json({ message: 'Appointment status updated', appointment: transformAppointment(appointment) });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error updating appointment' });
@@ -328,10 +326,11 @@ const sendDailySummary = async (req, res) => {
         const doctorId = req.userId;
         const today = new Date().toISOString().split('T')[0];
 
-        const appointments = await Appointment.findAll({
-            where: { doctorId, date: today },
-            include: [{ model: Patient }, { model: Student }]
-        });
+        const rawAppointments = await Appointment.find({ doctorId, date: today })
+            .populate('patientId')
+            .populate('studentId');
+
+        const appointments = rawAppointments.map(transformAppointment);
 
         const summaryText = appointments.map(a => {
             const patientName = a.Patient ? a.Patient.name : 'Patient';

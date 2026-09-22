@@ -1,74 +1,58 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Appointment = sequelize.define('Appointment', {
-    id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-    },
+const appointmentSchema = new mongoose.Schema({
     tokenNumber: {
-        type: DataTypes.INTEGER,
-        allowNull: false
+        type: Number,
+        required: true
     },
     date: {
-        type: DataTypes.STRING, // YYYY-MM-DD
-        allowNull: false
+        type: String, // YYYY-MM-DD
+        required: true
     },
     time: {
-        type: DataTypes.STRING, // HH:MM
-        allowNull: false
+        type: String, // HH:MM
+        required: true
     },
     status: {
-        type: DataTypes.ENUM('Scheduled', 'Completed', 'Cancelled'),
-        defaultValue: 'Scheduled'
+        type: String,
+        enum: ['Scheduled', 'Completed', 'Cancelled'],
+        default: 'Scheduled'
     },
     sessionType: {
-        type: DataTypes.STRING, // e.g. 'Root Canal Treatment (RCT)', 'Dental Extraction', etc.
-        defaultValue: 'Dental Consultation'
+        type: String,
+        default: 'Dental Consultation'
     },
     dentalProcedure: {
-        type: DataTypes.STRING,
-        defaultValue: 'Dental Consultation & Diagnosis'
+        type: String,
+        default: 'Dental Consultation & Diagnosis'
     },
     toothNumber: {
-        type: DataTypes.STRING, // e.g. 'Tooth #16', 'Upper Anterior'
-        allowNull: true
+        type: String
     },
     chairNumber: {
-        type: DataTypes.STRING, // e.g. 'Chair 04, Endodontics Clinic'
-        defaultValue: 'Operatory Chair 01'
+        type: String,
+        default: 'Operatory Chair 01'
     },
     notes: {
-        type: DataTypes.TEXT
+        type: String
     },
     facultyFeedback: {
-        type: DataTypes.TEXT
+        type: String
     },
     doctorId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'Doctors', // Supervising Faculty Mentor
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Doctor',
+        required: true
     },
     patientId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-            model: 'Patients',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Patient'
     },
     studentId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-            model: 'Students', // Treating Dental Student Clinician
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student'
     }
-});
+}, { timestamps: true });
 
+const Appointment = mongoose.model('Appointment', appointmentSchema);
 module.exports = Appointment;

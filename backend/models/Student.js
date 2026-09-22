@@ -1,52 +1,45 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Student = sequelize.define('Student', {
-    id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-    },
+const studentSchema = new mongoose.Schema({
     name: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     email: {
-        type: DataTypes.STRING,
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true,
-        validate: {
-            isEmail: true
-        }
+        match: [/.+\@.+\..+/, 'Please fill a valid email address']
     },
     password: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     rollNumber: {
-        type: DataTypes.STRING,
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true
     },
     year: {
-        type: DataTypes.STRING, // e.g. "MBBS 1st Year", "MBBS 2nd Year", "MBBS 3rd Year", "Final Year", "Intern/Resident"
-        allowNull: false,
-        defaultValue: 'MBBS 2nd Year'
+        type: String,
+        required: true,
+        default: 'MBBS 2nd Year'
     },
     department: {
-        type: DataTypes.STRING, // e.g. "Cardiology", "Surgery", "Pediatrics", "Internal Medicine"
-        defaultValue: 'Clinical Medicine'
+        type: String,
+        default: 'Clinical Medicine'
     },
     phone: {
-        type: DataTypes.STRING
+        type: String
     },
     avatar: {
-        type: DataTypes.STRING
+        type: String
     },
     role: {
-        type: DataTypes.STRING,
-        defaultValue: 'student'
+        type: String,
+        default: 'student'
     }
-});
+}, { timestamps: true });
 
+const Student = mongoose.model('Student', studentSchema);
 module.exports = Student;

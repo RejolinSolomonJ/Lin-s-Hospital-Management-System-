@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const { Server } = require('socket.io');
-const { sequelize } = require('./models');
+const connectDB = require('./config/database');
 const authRoutes = require('./routes/authRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const treatmentRoutes = require('./routes/treatmentRoutes');
@@ -64,12 +64,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Sync Database and Start Server
-sequelize.sync().then(async () => {
+connectDB().then(async () => {
     console.log('Database synced successfully');
     await seedData();
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`Dental University Server & Socket.IO live at http://0.0.0.0:${PORT}`);
     });
 }).catch(err => {
-    console.error('Database sync error:', err);
+    console.error('Database connection error:', err);
 });

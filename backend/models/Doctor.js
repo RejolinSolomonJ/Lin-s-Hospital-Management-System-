@@ -1,67 +1,60 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Doctor = sequelize.define('Doctor', {
-    id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-    },
+const doctorSchema = new mongoose.Schema({
     name: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     email: {
-        type: DataTypes.STRING,
-        allowNull: false,
+        type: String,
+        required: true,
         unique: true,
-        validate: {
-            isEmail: true
-        }
+        match: [/.+\@.+\..+/, 'Please fill a valid email address']
     },
     password: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     department: {
-        type: DataTypes.STRING,
-        defaultValue: 'General Medicine'
+        type: String,
+        default: 'General Medicine'
     },
     designation: {
-        type: DataTypes.STRING, // e.g., "Professor & Head of Department", "Associate Professor", "Assistant Professor"
-        defaultValue: 'Professor'
+        type: String,
+        default: 'Professor'
     },
     specialization: {
-        type: DataTypes.STRING,
-        defaultValue: 'Clinical Medicine'
+        type: String,
+        default: 'Clinical Medicine'
     },
     cabin: {
-        type: DataTypes.STRING, // e.g., "Room 304, Academic Block A"
-        defaultValue: 'Faculty Block Room 101'
+        type: String,
+        default: 'Faculty Block Room 101'
     },
     phone: {
-        type: DataTypes.STRING
+        type: String
     },
     bio: {
-        type: DataTypes.TEXT,
-        defaultValue: 'Faculty member specializing in clinical research, medical education, and student mentoring.'
+        type: String,
+        default: 'Faculty member specializing in clinical research, medical education, and student mentoring.'
     },
     maxMentees: {
-        type: DataTypes.INTEGER,
-        defaultValue: 6
+        type: Number,
+        default: 6
     },
     officeHours: {
-        type: DataTypes.STRING,
-        defaultValue: 'Mon - Fri, 09:00 AM - 04:00 PM'
+        type: String,
+        default: 'Mon - Fri, 09:00 AM - 04:00 PM'
     },
     totalSlotsPerDay: {
-        type: DataTypes.INTEGER,
-        defaultValue: 6
+        type: Number,
+        default: 6
     },
     role: {
-        type: DataTypes.STRING,
-        defaultValue: 'faculty'
+        type: String,
+        default: 'faculty'
     }
-});
+}, { timestamps: true });
 
+const Doctor = mongoose.model('Doctor', doctorSchema);
 module.exports = Doctor;

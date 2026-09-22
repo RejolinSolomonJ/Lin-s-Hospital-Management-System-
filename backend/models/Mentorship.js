@@ -1,44 +1,32 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Mentorship = sequelize.define('Mentorship', {
-    id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
-    },
+const mentorshipSchema = new mongoose.Schema({
     studentId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'Students',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student',
+        required: true
     },
     facultyId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'Doctors', // Maps to Doctor/Faculty table
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Doctor',
+        required: true
     },
     status: {
-        type: DataTypes.ENUM('Pending', 'Approved', 'Active', 'Declined', 'Completed'),
-        defaultValue: 'Pending'
+        type: String,
+        enum: ['Pending', 'Approved', 'Active', 'Declined', 'Completed'],
+        default: 'Pending'
     },
     goals: {
-        type: DataTypes.TEXT, // Goals or motivation submitted by student
-        allowNull: true
+        type: String
     },
     academicYear: {
-        type: DataTypes.STRING,
-        defaultValue: '2025-2026'
+        type: String,
+        default: '2025-2026'
     },
     facultyNotes: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String
     }
-});
+}, { timestamps: true });
 
+const Mentorship = mongoose.model('Mentorship', mentorshipSchema);
 module.exports = Mentorship;
